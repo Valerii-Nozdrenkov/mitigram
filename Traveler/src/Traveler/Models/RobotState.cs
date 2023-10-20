@@ -4,10 +4,10 @@ using Traveler.Extensions;
 
 namespace Traveler.Models
 {
-    public record RobotState
+    public readonly struct RobotState : IEquatable<RobotState>
     {
-        public Complex Position { get; private set; }
-        public Complex Direction { get; private set; }
+        public Complex Position { get; }
+        public Complex Direction { get; }
 
         public RobotState(int positionX, int positionY, char direction)
         {
@@ -15,22 +15,30 @@ namespace Traveler.Models
             Direction = direction.GetDirection().DirectionToComplex();
         }
 
-        public void Move(Move move)
+        public RobotState(Complex position, Complex direction)
+        {
+            Direction = direction;
+            Position = position;
+        }
+
+        /// <summary>
+        /// Moves the robot
+        /// </summary>
+        /// <param name="move">Direction</param>
+        /// <returns>New robot position</returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public RobotState Move(Move move)
         {
             switch (move)
             {
                 case Models.Move.Forward:
-                    MoveForward();
-                    break;
+                    return new RobotState(Position + Direction, Direction);
                 case Models.Move.Backward:
-                    MoveBackward();
-                    break;
+                    return new RobotState(Position - Direction, Direction);
                 case Models.Move.Left:
-                    RotateLeft();
-                    break;
+                    return new RobotState(Position, Direction * -Complex.ImaginaryOne);
                 case Models.Move.Right:
-                    RotateRight();
-                    break;
+                    return new RobotState(Position, Direction * Complex.ImaginaryOne);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(move), move, null);
             }
@@ -55,24 +63,19 @@ namespace Traveler.Models
             return new ValueTuple<int, int, char>(Convert.ToInt32(Position.Real), Convert.ToInt32(Position.Imaginary), direction);
         }
 
-        private void MoveForward()
+        public bool Equals(RobotState other)
         {
-            Position += Direction;
+            return Position.Equals(other.Position) && Direction.Equals(other.Direction);
         }
 
-        private void MoveBackward()
+        public override bool Equals(object obj)
         {
-            Position -= Direction;
+            return obj is RobotState other && Equals(other);
         }
 
-        private void RotateLeft()
+        public override int GetHashCode()
         {
-            Direction *= -Complex.ImaginaryOne;
-        }
-
-        private void RotateRight()
-        {
-            Direction *= Complex.ImaginaryOne;
+            return HashCode.Combine(Position, Direction);
         }
     }
 }

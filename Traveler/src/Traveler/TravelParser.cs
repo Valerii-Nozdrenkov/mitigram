@@ -52,7 +52,7 @@ namespace Traveler
                     {
                         foreach (var step in root)
                         {
-                            path.Move(step.GetMove());
+                            path = path.Move(step.GetMove());
                         }
                     }
                 }
