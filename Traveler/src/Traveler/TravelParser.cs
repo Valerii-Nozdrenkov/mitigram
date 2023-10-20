@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using Traveler.Extensions;
+using Traveler.Models;
 
 namespace Traveler
 {
@@ -8,132 +11,61 @@ namespace Traveler
         public static (int x, int y, char direction)[] Run(string input)
         {
             var result = new List<(int, int, char)>();
-            var l = input.Split("\r\n");
+            var trips = input.Split("POS=", StringSplitOptions.RemoveEmptyEntries);
 
-            var i = 0;
-            while (true)
+            foreach (var trip in trips.Where(t => !t.StartsWith("//")))
             {
-                if (!l[i].StartsWith("POS="))
+                var tripData = trip.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                var initialPosition = tripData[0].Split(',');
+
+                if (initialPosition.Length != 3)
                 {
-                    throw new InvalidOperationException("Missing position!");
-                }
-
-                var temp = l[i].Split('=');
-                var p = (int.Parse(temp[1].Split(',')[0]), int.Parse(temp[1].Split(',')[1]), temp[1].Split(',')[2][0]);
-                i += 1;
-
-                var q = false;
-                while (i < l.Length)
-                {
-                    if (l[i].StartsWith("POS="))
-                    {
-                        q = !q;
-                        break;
-                    }
-
-                    foreach (var op in l[i])
-                    {
-                        if (op == 'F')
-                        {
-                            switch (p.Item3)
-                            {
-                                case 'N': p.Item2 -= 1; break;
-                                case 'S': p.Item2 += 1; break;
-                                case 'E': p.Item1 += 1; break;
-                                case 'W': p.Item1 -= 1; break;
-                            }
-                        }
-                        else if (op == 'B')
-                        {
-                            switch (p.Item3)
-                            {
-                                case 'N': p.Item2 += 1; break;
-                                case 'S': p.Item2 -= 1; break;
-                                case 'E': p.Item1 -= 1; break;
-                                case 'W': p.Item1 += 1; break;
-                            }
-                        }
-                        else if (op == 'L' || op == 'R')
-                        {
-                            var newRotation = Rotate(p.Item3, op);
-                            p.Item3 = newRotation;
-                        }
-                    }
-
-                    i++;
-                }
-
-                if (i >= l.Length)
-                {
-                    break;
-                }
-
-                if (string.IsNullOrWhiteSpace(l[i]))
-                {
-                    i++;
+                    Console.WriteLine("Invalid position format. Processing next trip...");
                     continue;
                 }
 
-                if (q)
+                if (!int.TryParse(initialPosition[0], out var initX))
                 {
-                    result.Add(p);
+                    Console.WriteLine("Failed parse initial position X. Processing next trip...");
+                    continue;
                 }
+
+                if (!int.TryParse(initialPosition[1], out var initY))
+                {
+                    Console.WriteLine("Failed parse initial position Y. Processing next trip...");
+                    continue;
+                }
+
+                var initialDirection = initialPosition[2].FirstOrDefault();
+
+                if (initialDirection == char.MinValue)
+                {
+                    Console.WriteLine("Failed parse initial direction. Processing next trip...");
+                    continue;
+                }
+
+                var path = new RobotState(initX, initY, initialDirection);
+
+                try
+                {
+                    foreach (var root in tripData.Skip(1).Where(t => !t.StartsWith("//")))
+                    {
+                        foreach (var step in root)
+                        {
+                            path.Move(step.GetMove());
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to process root. Error: {ex.Message} Trying next one..");
+                    continue;
+                }
+
+                result.Add(path.ToTupleFormat());
             }
 
             return result.ToArray();
-        }
-
-        private static char Rotate(char f, char r)
-        {
-            switch (f)
-            {
-                case 'N':
-                    {
-                        switch (r)
-                        {
-                            case 'F': return 'N';
-                            case 'B': return 'N';
-                            case 'L': return 'W';
-                            case 'R': return 'E';
-                        }
-                        break;
-                    }
-                case 'S':
-                    {
-                        switch (r)
-                        {
-                            case 'F': return 'S';
-                            case 'B': return 'S';
-                            case 'L': return 'E';
-                            case 'R': return 'W';
-                        }
-                        break;
-                    }
-                case 'E':
-                    {
-                        switch (r)
-                        {
-                            case 'F': return 'E';
-                            case 'B': return 'E';
-                            case 'L': return 'N';
-                            case 'R': return 'S';
-                        }
-                        break;
-                    }
-                case 'W':
-                    {
-                        switch (r)
-                        {
-                            case 'F': return 'W';
-                            case 'B': return 'W';
-                            case 'L': return 'S';
-                            case 'R': return 'N';
-                        }
-                        break;
-                    }
-            }
-
-            throw new InvalidOperationException("Could not rotate!");
         }
     }
 }
